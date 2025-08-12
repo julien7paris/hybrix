@@ -211,7 +211,7 @@ function Hero() {
     <div className="text-center space-y-3 py-8">
       <h1 className="text-3xl md:text-5xl font-bold tracking-tight">Hybrid Talent Marketplace</h1>
       <p className="text-gray-600 max-w-2xl mx-auto">
-        Missions B2B réalisées par des binômes <b>IA + expert humain</b>. Paiements sécurisés via <b>escrow Web3</b>.
+        Missions réalisées par des binômes <b>IA + Expert Humain</b>. #Data & AnalyticsPaiements #Marketing & Growth #Design & Création #Juridique & Conformité #Support & Relation Client. Sécurisés via <b>Wallet Web3</b>.
       </p>
       <div className="flex justify-center gap-3">
         <a className="px-4 py-2 rounded-2xl bg-black text-white" href="#post">
