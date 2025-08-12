@@ -16,18 +16,53 @@ import { injected } from "wagmi/connectors";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Abi } from "viem";
 
+/* ---------- Types ---------- */
+
+type Address = `0x${string}`;
+
+interface EthereumProvider {
+  isMetaMask?: boolean;
+  request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+}
+
+function getEthereum(): EthereumProvider | undefined {
+  if (typeof window === "undefined") return undefined;
+  const eth = (window as unknown as { ethereum?: EthereumProvider }).ethereum;
+  return eth;
+}
+
+interface Talent {
+  id: number;
+  name: string;
+  skills: string[];
+  rate: number;
+  rating: number;
+}
+
+type MissionStatus = "open" | "closed";
+interface Mission {
+  id: number;
+  title: string;
+  budget: number;
+  desc: string;
+  status: MissionStatus;
+}
+
 /* ---------- Providers & config ---------- */
 
 const queryClient = new QueryClient();
 
+const ESCROW_ADDRESS: Address =
+  ((process.env.NEXT_PUBLIC_ESCROW_ADDRESS as Address | undefined) ??
+    ("0x0000000000000000000000000000000000000000" as Address)) as Address;
+
+const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || undefined;
+
 const config = createConfig({
   chains: [polygonAmoy],
   connectors: [injected({ target: "metaMask" })],
-  transports: { [polygonAmoy.id]: http() },
+  transports: { [polygonAmoy.id]: http(rpcUrl) },
 });
-
-// ⚠️ Remplace par l’adresse de TON contrat déployé (Amoy)
-const ESCROW_ADDRESS = "0xa6b0AF5f778e051B7CCDFf4520e846FF7a48b14c" as `0x${string}`;
 
 const escrowAbi = [
   {
@@ -64,15 +99,34 @@ const escrowAbi = [
 ] as const satisfies Abi;
 
 /* ---------- Données démo ---------- */
-const seedTalent = [
+
+const seedTalent: Talent[] = [
   { id: 1, name: "Alice Martin", skills: ["Prompt Eng.", "Data Viz"], rate: 65, rating: 4.8 },
   { id: 2, name: "Bilal Cohen", skills: ["Fintech", "Solidity"], rate: 85, rating: 4.7 },
   { id: 3, name: "Chloé Dubois", skills: ["UX", "Automation"], rate: 55, rating: 4.6 },
 ];
-const sampleMissions = [
-  { id: 101, title: "Audit data + dashboard P&L", budget: 1800, desc: "Nettoyage data + P&L mensuel." },
-  { id: 102, title: "Agent IA service client", budget: 1200, desc: "Scripts + intégration helpdesk." },
+
+const sampleMissions: Mission[] = [
+  { id: 101, title: "Audit data + dashboard P&L", budget: 1800, desc: "Nettoyage data + P&L mensuel.", status: "open" },
+  { id: 102, title: "Agent IA service client", budget: 1200, desc: "Scripts + intégration helpdesk.", status: "open" },
 ];
+
+/* ---------- Utils ---------- */
+
+function parseEthToWei(ethStr: string): bigint {
+  const n = parseFloat(ethStr);
+  if (Number.isNaN(n)) return BigInt(0);
+  return BigInt(Math.round(n * 1e18));
+}
+
+function errorMessage(err: unknown): string {
+  if (typeof err === "string") return err;
+  if (err && typeof err === "object") {
+    const anyErr = err as { shortMessage?: string; message?: string };
+    return anyErr.shortMessage || anyErr.message || "Erreur";
+  }
+  return "Erreur";
+}
 
 /* ---------- UI ---------- */
 
@@ -85,18 +139,16 @@ function HeaderBar() {
   );
 }
 
-/** ✅ WalletControls patché: anti-hydration + fallback MetaMask */
+/** ✅ WalletControls: anti-hydration + fallback MetaMask */
 function WalletControls() {
   const { address, chainId, isConnected } = useAccount();
   const { connect, connectors, status, error } = useConnect();
   const { disconnect } = useDisconnect();
 
-  // Empêche l’hydratation de diverger
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  const hasEthereum =
-    mounted && typeof window !== "undefined" && (window as any).ethereum && (window as any).ethereum.isMetaMask;
+  const eth = mounted ? getEthereum() : undefined;
 
   const injectedConnector =
     mounted && connectors?.find?.((c) => c.id === "injected" || c.name.toLowerCase().includes("metamask"));
@@ -107,22 +159,23 @@ function WalletControls() {
         await connect({ connector: injectedConnector });
         return;
       }
-      if (hasEthereum) {
-        await (window as any).ethereum.request({ method: "eth_requestAccounts" });
+      if (eth) {
+        await eth.request({ method: "eth_requestAccounts" });
         return;
       }
       window.open("https://metamask.io/download/", "_blank");
-    } catch (e: any) {
-      alert(e?.shortMessage || e?.message || "Connexion wallet impossible");
+    } catch (e) {
+      alert(errorMessage(e));
     }
   };
 
-  // Rendu stable avant mount pour éviter le mismatch SSR/Client
   if (!mounted) {
     return (
       <div className="flex items-center gap-3 text-sm">
         <span className="px-2 py-1 rounded bg-gray-200">Non connecté</span>
-        <button className="px-3 py-1 rounded border" disabled>Connecter</button>
+        <button className="px-3 py-1 rounded border" disabled>
+          Connecter
+        </button>
         <span className="px-2 py-1 rounded border">Réseau: …</span>
       </div>
     );
@@ -130,16 +183,13 @@ function WalletControls() {
 
   return (
     <div className="flex items-center gap-3 text-sm">
-      <span
-        className={`px-2 py-1 rounded ${isConnected ? "bg-green-100" : "bg-gray-200"}`}
-        suppressHydrationWarning
-      >
+      <span className={`px-2 py-1 rounded ${isConnected ? "bg-green-100" : "bg-gray-200"}`} suppressHydrationWarning>
         {isConnected ? `${address?.slice(0, 6)}…${address?.slice(-4)}` : "Non connecté"}
       </span>
 
       {!isConnected ? (
         <button className="px-3 py-1 rounded bg-black text-white" onClick={tryConnect}>
-          {injectedConnector || hasEthereum ? "Connecter" : "Installer MetaMask"}
+          {injectedConnector || eth ? "Connecter" : "Installer MetaMask"}
         </button>
       ) : (
         <button className="px-3 py-1 rounded border" onClick={() => disconnect()}>
@@ -164,8 +214,12 @@ function Hero() {
         Missions B2B réalisées par des binômes <b>IA + expert humain</b>. Paiements sécurisés via <b>escrow Web3</b>.
       </p>
       <div className="flex justify-center gap-3">
-        <a className="px-4 py-2 rounded-2xl bg-black text-white" href="#post">Publier une mission</a>
-        <a className="px-4 py-2 rounded-2xl border" href="#find">Trouver un binôme</a>
+        <a className="px-4 py-2 rounded-2xl bg-black text-white" href="#post">
+          Publier une mission
+        </a>
+        <a className="px-4 py-2 rounded-2xl border" href="#find">
+          Trouver un binôme
+        </a>
       </div>
       <div className="flex items-center justify-center gap-2 text-xs mt-2 text-gray-500">
         <span>Facturation auto • Escrow • NFT (v2)</span>
@@ -203,7 +257,9 @@ function FindTalent({ onPropose }: { onPropose: (name: string) => void }) {
             </div>
             <div className="mt-2 flex gap-2 flex-wrap text-xs">
               {t.skills.map((s) => (
-                <span key={s} className="px-2 py-0.5 rounded bg-gray-100">{s}</span>
+                <span key={s} className="px-2 py-0.5 rounded bg-gray-100">
+                  {s}
+                </span>
               ))}
             </div>
             <div className="mt-3">
@@ -218,25 +274,53 @@ function FindTalent({ onPropose }: { onPropose: (name: string) => void }) {
   );
 }
 
-function PostMission({ onCreate }: { onCreate: (m: any) => void }) {
+function PostMission({ onCreate }: { onCreate: (m: Mission) => void }) {
   const [title, setTitle] = useState("");
   const [budget, setBudget] = useState("");
   const [desc, setDesc] = useState("");
+
   return (
     <section id="post" className="rounded-2xl border p-4">
       <div className="font-semibold mb-3">Publier une mission</div>
       <div className="grid md:grid-cols-3 gap-3">
-        <input className="border rounded px-3 py-2" placeholder="Titre" value={title} onChange={(e) => setTitle(e.target.value)} />
-        <input className="border rounded px-3 py-2" placeholder="Budget (€)" value={budget} onChange={(e) => setBudget(e.target.value)} />
-        <input className="border rounded px-3 py-2 md:col-span-3" placeholder="Description" value={desc} onChange={(e) => setDesc(e.target.value)} />
+        <input
+          className="border rounded px-3 py-2"
+          placeholder="Titre"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+        />
+        <input
+          className="border rounded px-3 py-2"
+          placeholder="Budget (€)"
+          value={budget}
+          onChange={(e) => setBudget(e.target.value)}
+        />
+        <input
+          className="border rounded px-3 py-2 md:col-span-3"
+          placeholder="Description"
+          value={desc}
+          onChange={(e) => setDesc(e.target.value)}
+        />
       </div>
       <div className="mt-3">
         <button
           className="px-4 py-2 rounded-2xl bg-black text-white"
           onClick={() => {
-            if (!title || !budget) return alert("Complète le titre et le budget");
-            onCreate({ id: Date.now(), title, budget: Number(budget), desc, status: "open" });
-            setTitle(""); setBudget(""); setDesc("");
+            if (!title || !budget) {
+              alert("Complète le titre et le budget");
+              return;
+            }
+            const m: Mission = {
+              id: Date.now(),
+              title,
+              budget: Number(budget),
+              desc,
+              status: "open",
+            };
+            onCreate(m);
+            setTitle("");
+            setBudget("");
+            setDesc("");
           }}
         >
           Créer
@@ -248,8 +332,8 @@ function PostMission({ onCreate }: { onCreate: (m: any) => void }) {
 
 function Contracts() {
   const { isConnected } = useAccount();
-  const [talent, setTalent] = useState("");
-  const [amountEth, setAmountEth] = useState("");
+  const [talent, setTalent] = useState<string>("");
+  const [amountEth, setAmountEth] = useState<string>("");
   const [dealId, setDealId] = useState<string>("");
 
   const { writeContractAsync } = useWriteContract();
@@ -259,18 +343,22 @@ function Contracts() {
     functionName: "nextId",
   });
 
-  const toWei = (ethStr: string) => {
-    const n = parseFloat(ethStr);
-    if (Number.isNaN(n)) return BigInt(0); // pas de littéral 0n
-    return BigInt(Math.round(n * 1e18));
-  };
-
   return (
     <section className="grid md:grid-cols-2 gap-4">
       <div className="rounded-2xl border p-4">
         <div className="font-semibold mb-2">Créer un deal (client → talent)</div>
-        <input className="border rounded px-3 py-2 w-full mb-2" placeholder="Adresse du talent (0x...)" value={talent} onChange={(e) => setTalent(e.target.value)} />
-        <input className="border rounded px-3 py-2 w-full mb-2" placeholder="Montant en ETH (testnet)" value={amountEth} onChange={(e) => setAmountEth(e.target.value)} />
+        <input
+          className="border rounded px-3 py-2 w-full mb-2"
+          placeholder="Adresse du talent (0x...)"
+          value={talent}
+          onChange={(e) => setTalent(e.target.value)}
+        />
+        <input
+          className="border rounded px-3 py-2 w-full mb-2"
+          placeholder="Montant en ETH (testnet)"
+          value={amountEth}
+          onChange={(e) => setAmountEth(e.target.value)}
+        />
         <div className="text-xs text-gray-500 mb-3">Prochain ID estimé: {String(nextId ?? "?")}</div>
         <button
           disabled={!isConnected || !talent || !amountEth}
@@ -281,11 +369,11 @@ function Contracts() {
                 abi: escrowAbi,
                 address: ESCROW_ADDRESS,
                 functionName: "createDeal",
-                args: [talent as `0x${string}`, toWei(amountEth)],
+                args: [talent as Address, parseEthToWei(amountEth)],
               });
               alert("Deal créé. Utilise l'ID = nextId - 1.");
-            } catch (e: any) {
-              alert(e?.shortMessage || e?.message || "Erreur createDeal");
+            } catch (e) {
+              alert(errorMessage(e));
             }
           }}
         >
@@ -295,8 +383,18 @@ function Contracts() {
 
       <div className="rounded-2xl border p-4">
         <div className="font-semibold mb-2">Financer & Libérer</div>
-        <input className="border rounded px-3 py-2 w-full mb-2" placeholder="ID du deal" value={dealId} onChange={(e) => setDealId(e.target.value)} />
-        <input className="border rounded px-3 py-2 w-full mb-2" placeholder="Montant en ETH (pour financer)" value={amountEth} onChange={(e) => setAmountEth(e.target.value)} />
+        <input
+          className="border rounded px-3 py-2 w-full mb-2"
+          placeholder="ID du deal"
+          value={dealId}
+          onChange={(e) => setDealId(e.target.value)}
+        />
+        <input
+          className="border rounded px-3 py-2 w-full mb-2"
+          placeholder="Montant en ETH (pour financer)"
+          value={amountEth}
+          onChange={(e) => setAmountEth(e.target.value)}
+        />
         <div className="flex gap-2">
           <button
             disabled={!isConnected || !dealId || !amountEth}
@@ -308,11 +406,11 @@ function Contracts() {
                   address: ESCROW_ADDRESS,
                   functionName: "fundDeal",
                   args: [BigInt(dealId)],
-                  value: toWei(amountEth),
+                  value: parseEthToWei(amountEth),
                 });
                 alert("Financé");
-              } catch (e: any) {
-                alert(e?.shortMessage || e?.message || "Erreur fundDeal");
+              } catch (e) {
+                alert(errorMessage(e));
               }
             }}
           >
@@ -330,8 +428,8 @@ function Contracts() {
                   args: [BigInt(dealId)],
                 });
                 alert("Libéré au talent");
-              } catch (e: any) {
-                alert(e?.shortMessage || e?.message || "Erreur release");
+              } catch (e) {
+                alert(errorMessage(e));
               }
             }}
           >
@@ -346,8 +444,8 @@ function Contracts() {
 
 /* ---------- Page ---------- */
 export default function Page() {
-  const [missions, setMissions] = useState(sampleMissions);
-  const addMission = (m: any) => setMissions((prev) => [m, ...prev]);
+  const [missions, setMissions] = useState<Mission[]>(sampleMissions);
+  const addMission = (m: Mission) => setMissions((prev) => [m, ...prev]);
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -376,7 +474,7 @@ export default function Page() {
             </section>
 
             <footer className="text-xs text-gray-500 pt-8">
-              © {new Date().getFullYear()} HybriX — MVP testnet. Renseignez l’adresse du contrat dans ESCROW_ADDRESS.
+              © {new Date().getFullYear()} HybriX — MVP testnet. Adresse contrat via NEXT_PUBLIC_ESCROW_ADDRESS.
             </footer>
           </div>
         </main>
