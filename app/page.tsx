@@ -58,7 +58,7 @@ const config = createConfig({
   chains: [polygonAmoy],
   connectors: [injected({ target: "metaMask" })],
   transports: {
-    // ✅ 1) Fallback RPC public Amoy si la variable d'env est absente
+    // Fallback RPC public Amoy si la variable d'env est absente
     [polygonAmoy.id]: http(rpcUrl ?? polygonAmoy.rpcUrls.default.http[0]),
   },
 });
@@ -207,10 +207,10 @@ function Hero() {
       </p>
       <div className="flex justify-center gap-4 mt-6">
         <a href="#post" className="px-6 py-3 rounded-full bg-black text-white font-medium">
-          Publier une mission
+          Publier une Mission
         </a>
         <a href="#find" className="px-6 py-3 rounded-full border border-white text-white font-medium">
-          Trouver un binôme
+          Trouver un Binôme
         </a>
       </div>
       <div className="mt-3 text-sm text-white/60">
@@ -297,7 +297,7 @@ function PostMission({ onCreate }: { onCreate: (m: Mission) => void }) {
           onChange={(e) => setTitle(e.target.value)}
         />
         <input
-          type="number"           // ✅ 3) numeric
+          type="number"
           inputMode="decimal"
           className="border border-white/20 bg-purple-900/30 text-white rounded px-3 py-2 placeholder-white/50 outline-none focus:ring-2 focus:ring-purple-400"
           placeholder="Budget (€)"
@@ -370,7 +370,7 @@ function Contracts() {
           onChange={(e) => setTalent(e.target.value)}
         />
         <input
-          type="number"           // ✅ 3) numeric
+          type="number"
           inputMode="decimal"
           className="border border-white/20 bg-purple-900/30 text-white rounded px-3 py-2 w-full mb-2 placeholder-white/50 outline-none focus:ring-2 focus:ring-purple-400"
           placeholder="Montant en ETH (testnet)"
@@ -389,7 +389,6 @@ function Contracts() {
                 abi: escrowAbi,
                 address: ESCROW_ADDRESS,
                 functionName: "createDeal",
-                // ✅ 2) parseEther remplace parseEthToWei
                 args: [talent as Address, parseEther(amountEth || "0")],
               });
               alert("Deal créé. Utilise l'ID = nextId - 1.");
@@ -407,7 +406,7 @@ function Contracts() {
         className="rounded-3xl border border-white/15 bg-white/5 backdrop-blur-xl p-5">
         <div className="font-semibold mb-2 text-white/90">Financer & Libérer</div>
         <input
-          type="number"           // ✅ 3) numeric
+          type="number"
           inputMode="numeric"
           className="border border-white/20 bg-purple-900/30 text-white rounded px-3 py-2 w-full mb-2 placeholder-white/50 outline-none focus:ring-2 focus:ring-purple-400"
           placeholder="ID du deal"
@@ -415,7 +414,7 @@ function Contracts() {
           onChange={(e) => setDealId(e.target.value)}
         />
         <input
-          type="number"           // ✅ 3) numeric
+          type="number"
           inputMode="decimal"
           className="border border-white/20 bg-purple-900/30 text-white rounded px-3 py-2 w-full mb-2 placeholder-white/50 outline-none focus:ring-2 focus:ring-purple-400"
           placeholder="Montant en ETH (pour financer)"
@@ -433,7 +432,6 @@ function Contracts() {
                   address: ESCROW_ADDRESS,
                   functionName: "fundDeal",
                   args: [BigInt(dealId)],
-                  // ✅ 2) parseEther remplace parseEthToWei
                   value: parseEther(amountEth || "0"),
                 });
                 alert("Financé");
@@ -466,6 +464,51 @@ function Contracts() {
         </div>
         <p className="text-xs text-white/60 mt-2">Pour la prod : passer en USDC + jalons multiples.</p>
       </motion.div>
+    </motion.section>
+  );
+}
+
+/* ---------- Domains / Thèmes ---------- */
+function DomainsSection() {
+  const domains = [
+    "Data & Analytics",
+    "Marketing",
+    "Design",
+    "Juridique & Conformité",
+    "Support Client",
+    "Finance",
+    "Santé",
+    "Ressources Humaines",
+    "Cybersécurité",
+    "Recherche",
+    "Industrie",
+    "Médias",
+  ];
+
+  return (
+    <motion.section
+      id="domains"
+      variants={stagger}
+      initial="hidden"
+      whileInView="show"
+      viewport={{ once: true, amount: 0.2 }}
+      className="rounded-3xl border border-white/15 bg-white/5 backdrop-blur-xl p-6 md:p-8"
+    >
+      <motion.h2 variants={fadeCard} className="text-xl md:text-2xl font-semibold text-white/90 mb-5">
+        Thèmes couverts
+      </motion.h2>
+
+      <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3">
+        {domains.map((label) => (
+          <motion.div
+            key={label}
+            variants={fadeCard}
+            className="rounded-2xl border border-white/15 bg-white/5 px-4 py-3 text-white/90"
+          >
+            {label}
+          </motion.div>
+        ))}
+      </div>
     </motion.section>
   );
 }
@@ -518,77 +561,8 @@ export default function Page() {
               <Contracts />
             </motion.section>
 
-            {/* ---------- Appendice animé : Création de valeur IA + Humain ---------- */}
-            <motion.section
-              id="value-prop"
-              variants={stagger}
-              initial="hidden"
-              whileInView="show"
-              viewport={{ once: true, amount: 0.2 }}
-              className="bg-white rounded-3xl shadow-md p-6 md:p-10 space-y-8"
-            >
-              <motion.h2 variants={fadeCard} className="text-2xl md:text-3xl font-bold text-center text-gray-900">
-                🚀 Création de valeur d’un duo IA + Humain
-              </motion.h2>
-
-              <div className="grid md:grid-cols-3 gap-6">
-                {/* Confiance & adoption */}
-                <motion.div variants={fadeCard} className="p-5 rounded-2xl border border-gray-200 bg-gray-50">
-                  <div className="flex items-center gap-3 mb-3">
-                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-purple-100 text-purple-700">
-                      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="currentColor">
-                        <path d="M12 2.5l7 3v6.2c0 4.2-2.9 8.1-7 9.8-4.1-1.7-7-5.6-7-9.8V5.5l7-3zM11 15.6l5.3-5.3-1.4-1.4L11 12.8l-1.9-1.9-1.4 1.4 3.3 3.3z"/>
-                      </svg>
-                    </span>
-                    <h3 className="font-semibold text-lg">Confiance & adoption</h3>
-                  </div>
-                  <p className="text-sm text-gray-600 mb-2">
-                    <b>Problème :</b> Les entreprises hésitent à déléguer totalement à une IA (erreurs, biais, conformité).
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    <b>Valeur :</b> L’expert humain sert de garant, valide et prend la responsabilité finale.
-                    <br />→ Adoption accélérée, risque réduit.
-                  </p>
-                </motion.div>
-
-                {/* Qualité & contexte */}
-                <motion.div variants={fadeCard} className="p-5 rounded-2xl border border-gray-200 bg-gray-50">
-                  <div className="flex items-center gap-3 mb-3">
-                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100 text-indigo-700">
-                      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="currentColor">
-                        <path d="M12 2l1.6 3.7L17 7.3l-3.4 1.6L12 12l-1.6-3.1L7 7.3l3.4-1.6L12 2zm6.5 8.5l.9 2 2 .9-2 .9-.9 2-.9-2-2-.9 2-.9.9-2zM5.5 13.5l.7 1.6 1.6.7-1.6.7-.7 1.6-.7-1.6-1.6-.7 1.6-.7.7-1.6z"/>
-                      </svg>
-                    </span>
-                    <h3 className="font-semibold text-lg">Qualité supérieure & contexte</h3>
-                  </div>
-                  <p className="text-sm text-gray-600 mb-2">
-                    <b>Problème :</b> L’IA ne capte pas toujours le contexte stratégique, culturel ou émotionnel.
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    <b>Valeur :</b> L’humain apporte intuition, jugement et intègre des infos non présentes dans les données.
-                  </p>
-                </motion.div>
-
-                {/* Cas d’usage à forte valeur */}
-                <motion.div variants={fadeCard} className="p-5 rounded-2xl border border-gray-200 bg-gray-50">
-                  <div className="flex items-center gap-3 mb-3">
-                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
-                      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="currentColor">
-                        <path d="M12 2a10 10 0 1010 10h-2A8 8 0 1112 4V2zm0 4a6 6 0 106 6h-2a4 4 0 11-4-4V6zm1 5a1 1 0 11-2 0 1 1 0 012 0z"/>
-                      </svg>
-                    </span>
-                    <h3 className="font-semibold text-lg">Cas d’usage à forte valeur</h3>
-                  </div>
-                  <p className="text-sm text-gray-600 mb-2">
-                    Audit juridique • Négociations B2B • Décisions financières • Conception UX
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    IA seule = risque d’erreurs coûteuses.
-                    <br />Duo IA + humain = rapidité, scalabilité et validation experte.
-                  </p>
-                </motion.div>
-              </div>
-            </motion.section>
+            {/* Thèmes couverts */}
+            <DomainsSection />
 
             <footer className="text-xs text-white/60 pt-8">
               © {new Date().getFullYear()} HybriX — MVP testnet. Adresse contrat via NEXT_PUBLIC_ESCROW_ADDRESS.
