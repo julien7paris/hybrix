@@ -128,7 +128,12 @@ function HeaderBar() {
   return (
     <div className="flex items-center justify-between py-4 px-6 backdrop-blur-xl bg-white/10 rounded-2xl border border-white/15">
       <div className="font-extrabold text-xl tracking-tight text-white">HybriX</div>
-      <WalletControls />
+      <div className="flex items-center gap-3">
+        <a href="#register" className="hidden sm:inline px-4 py-1.5 rounded-full bg-black text-white border border-white/15 hover:bg-white/10 transition">
+          Devenir talent
+        </a>
+        <WalletControls />
+      </div>
     </div>
   );
 }
@@ -212,6 +217,9 @@ function Hero() {
         <a href="#find" className="px-6 py-3 rounded-full border border-white text-white font-medium">
           Trouver un Binôme
         </a>
+        <a href="#register" className="px-6 py-3 rounded-full bg-gradient-to-r from-indigo-500 to-purple-700 text-white font-medium">
+          Devenir talent
+        </a>
       </div>
       <div className="mt-3 text-sm text-white/60">
         Facturation auto • Escrow • NFT (v2)
@@ -220,11 +228,11 @@ function Hero() {
   );
 }
 
-function FindTalent({ onPropose }: { onPropose: (name: string) => void }) {
+function FindTalent({ talents, onPropose }: { talents: Talent[]; onPropose: (name: string) => void }) {
   const [q, setQ] = useState("");
   const list = useMemo(
-    () => seedTalent.filter((t) => (t.name + " " + t.skills.join(" ")).toLowerCase().includes(q.toLowerCase())),
-    [q]
+    () => talents.filter((t) => (t.name + " " + t.skills.join(" ")).toLowerCase().includes(q.toLowerCase())),
+    [q, talents]
   );
   return (
     <motion.section id="find" variants={stagger} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.2 }}
@@ -269,6 +277,78 @@ function FindTalent({ onPropose }: { onPropose: (name: string) => void }) {
           </motion.div>
         ))}
       </div>
+    </motion.section>
+  );
+}
+
+/* ---------- RegisterTalent ---------- */
+function RegisterTalent({ onRegister }: { onRegister: (t: Talent) => void }) {
+  const [name, setName] = useState("");
+  const [skills, setSkills] = useState("");
+  const [rate, setRate] = useState("");
+
+  const submit = () => {
+    if (!name || !rate) return alert("Nom et TJM requis");
+    const talent: Talent = {
+      id: Date.now(),
+      name,
+      skills: skills
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
+      rate: Number(rate),
+      rating: 4.6, // valeur par défaut pour le MVP
+    };
+    onRegister(talent);
+    setName("");
+    setSkills("");
+    setRate("");
+    alert("Profil talent créé !");
+  };
+
+  return (
+    <motion.section
+      id="register"
+      variants={fadeCard}
+      initial="hidden"
+      whileInView="show"
+      viewport={{ once: true, amount: 0.2 }}
+      className="rounded-3xl border border-white/15 bg-white/5 backdrop-blur-xl p-5"
+    >
+      <div className="font-semibold mb-3 text-white/90">Devenir talent</div>
+      <div className="grid md:grid-cols-3 gap-3">
+        <input
+          className="border border-white/20 bg-purple-900/30 text-white rounded px-3 py-2 placeholder-white/50"
+          placeholder="Nom complet"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+        <input
+          className="border border-white/20 bg-purple-900/30 text-white rounded px-3 py-2 placeholder-white/50"
+          placeholder="Compétences (séparées par des virgules)"
+          value={skills}
+          onChange={(e) => setSkills(e.target.value)}
+        />
+        <input
+          type="number"
+          inputMode="decimal"
+          className="border border-white/20 bg-purple-900/30 text-white rounded px-3 py-2 placeholder-white/50"
+          placeholder="TJM (€ / h)"
+          value={rate}
+          onChange={(e) => setRate(e.target.value)}
+        />
+      </div>
+      <div className="mt-3">
+        <button
+          className="px-5 py-2 rounded-full bg-gradient-to-r from-indigo-500 to-purple-700 text-white hover:scale-105 transition"
+          onClick={submit}
+        >
+          S’inscrire comme talent
+        </button>
+      </div>
+      <p className="text-xs text-white/60 mt-2">
+        MVP: les profils sont gardés en mémoire côté client. En prod, brancher une DB + auth.
+      </p>
     </motion.section>
   );
 }
@@ -516,7 +596,9 @@ function DomainsSection() {
 /* ---------- Page ---------- */
 export default function Page() {
   const [missions, setMissions] = useState<Mission[]>(sampleMissions);
+  const [talents, setTalents] = useState<Talent[]>(seedTalent);
   const addMission = (m: Mission) => setMissions((prev) => [m, ...prev]);
+  const addTalent = (t: Talent) => setTalents((prev) => [t, ...prev]);
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -535,7 +617,7 @@ export default function Page() {
               className="space-y-6"
             >
               {/* Recherche / Talents */}
-              <FindTalent onPropose={(name) => alert(`Proposer une mission à ${name}`)} />
+              <FindTalent talents={talents} onPropose={(name) => alert(`Proposer une mission à ${name}`)} />
 
               {/* Missions ouvertes */}
               <motion.div variants={fadeCard}
@@ -559,6 +641,9 @@ export default function Page() {
               {/* Formulaire + Escrow */}
               <PostMission onCreate={addMission} />
               <Contracts />
+
+              {/* Inscription Talent */}
+              <RegisterTalent onRegister={addTalent} />
             </motion.section>
 
             {/* Thèmes couverts */}
