@@ -297,6 +297,7 @@ function FindTalent({ talents, onPropose }: { talents: Talent[]; onPropose: (nam
   const [sector, setSector] = useState<string>("");
   const [location, setLocation] = useState<string>("");
   const [resetNonce, setResetNonce] = useState(0); // pour forcer le remount des selects si besoin
+  const [listKey, setListKey] = useState(0); // pour remonter la liste visuelle au reset
 
   const list = useMemo(() => {
     const c = (category || "").trim();
@@ -318,16 +319,24 @@ function FindTalent({ talents, onPropose }: { talents: Talent[]; onPropose: (nam
     setSector("");
     setLocation("");
     setResetNonce((n) => n + 1); // garantit un rerender des selects
+    setListKey((k) => k + 1); // remonte le conteneur de liste
   };
 
   return (
-    <motion.section id="find" variants={stagger} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.2 }}
-      className="grid md:grid-cols-3 gap-5">
+    <motion.section
+      id="find"
+      key={resetNonce} // remonte toute la section au reset
+      variants={stagger}
+      initial="hidden"
+      whileInView="show"
+      viewport={{ amount: 0.2 }}
+      className="grid md:grid-cols-3 gap-5"
+    >
       {/* Bloc filtres à gauche */}
       <motion.div variants={fadeCard}
         className="md:col-span-1 p-5 rounded-3xl border border-white/15 bg-white/5 backdrop-blur-xl">
         <div className="text-white/90 font-semibold mb-3">Rechercher</div>
-        <div className="grid grid-rows-5 gap-3 min-h-[360px]" key={resetNonce}>
+        <div className="grid grid-rows-5 gap-3 min-h-[360px]">
           <FilterSelect label="Catégorie IA" value={category} onChange={setCategory} options={["", ...IA_CATEGORIES]} />
           <FilterSelect label="Compétences de l'Expert" value={skill} onChange={setSkill} options={["", ...SKILLS]} />
           <FilterSelect label="Secteur visé" value={sector} onChange={setSector} options={["", ...SECTORS]} />
@@ -345,10 +354,14 @@ function FindTalent({ talents, onPropose }: { talents: Talent[]; onPropose: (nam
       </motion.div>
 
       {/* Liste talents à droite */}
-      <div className="md:col-span-2 grid gap-4">
+      <div key={listKey} className="md:col-span-2 grid gap-4">
         {list.map((t) => (
-          <motion.div variants={fadeCard} key={t.id}
-            className="rounded-3xl border border-white/15 p-4 bg-white/5 backdrop-blur-xl">
+          <motion.div
+            key={t.id}
+            variants={fadeCard}
+            initial={false} // évite de rester caché quand la liste se remonte
+            className="rounded-3xl border border-white/15 p-4 bg-white/5 backdrop-blur-xl"
+          >
             <div className="flex items-center justify-between">
               <span className="font-medium text-white">{t.name}</span>
               <div className="flex gap-2 items-center text-sm">
