@@ -32,9 +32,12 @@ function getEthereum(): EthereumProvider | undefined {
 interface Talent {
   id: number;
   name: string;
-  skills: string[];
-  rate: number;
-  rating: number;
+  skills: string[]; // compétences techniques
+  rate: number; // €/h
+  rating: number; // 0-5
+  location: string; // ville/pays
+  categories: string[]; // catégories IA
+  sectors: string[]; // secteurs visés
 }
 type MissionStatus = "open" | "closed";
 interface Mission {
@@ -97,11 +100,79 @@ const escrowAbi = [
   },
 ] as const satisfies Abi;
 
+/* ---------- Taxonomies ---------- */
+const IA_CATEGORIES = [
+  "Support Client",
+  "Assistance Métier",
+  "Marketing",
+  "Analyse & Conseil",
+  "Production de Contenu",
+] as const;
+
+const SKILLS = [
+  "UX / UI Design",
+  "Développement Web3 / Solidity",
+  "DevOps & Automatisation",
+  "Data Analyse & Data Science",
+  "Cybersécurité",
+  "Fintech",
+  "Prompt Engineering",
+  "Cloud & Edge Computing",
+  "IoT & Web3",
+] as const;
+
+const SECTORS = [
+  "E-commerce",
+  "Industrie",
+  "Formation",
+  "Santé",
+  "Médias",
+  "Finance",
+  "Tourisme",
+  "Énergie",
+] as const;
+
+const LOCATIONS = [
+  "Paris, FR",
+  "Lyon, FR",
+  "Marseille, FR",
+  "Bruxelles, BE",
+  "Genève, CH",
+  "Remote",
+] as const;
+
 /* ---------- Données démo ---------- */
 const seedTalent: Talent[] = [
-  { id: 1, name: "Alice Martin", skills: ["Prompt Eng.", "Data Viz"], rate: 65, rating: 4.8 },
-  { id: 2, name: "Bilal Cohen", skills: ["Fintech", "Solidity"], rate: 85, rating: 4.7 },
-  { id: 3, name: "Chloé Dubois", skills: ["UX", "Automation"], rate: 55, rating: 4.6 },
+  {
+    id: 1,
+    name: "Alice Martin",
+    skills: ["Prompt Engineering", "Data Analyse & Data Science"],
+    rate: 65,
+    rating: 4.8,
+    location: "Paris, FR",
+    categories: ["Analyse & Conseil", "Production de Contenu"],
+    sectors: ["Finance", "E-commerce"],
+  },
+  {
+    id: 2,
+    name: "Bilal Cohen",
+    skills: ["Fintech", "Développement Web3 / Solidity"],
+    rate: 85,
+    rating: 4.7,
+    location: "Lyon, FR",
+    categories: ["Assistance Métier"],
+    sectors: ["Finance", "Industrie"],
+  },
+  {
+    id: 3,
+    name: "Chloé Dubois",
+    skills: ["UX / UI Design", "DevOps & Automatisation"],
+    rate: 55,
+    rating: 4.6,
+    location: "Remote",
+    categories: ["Support Client", "Marketing"],
+    sectors: ["E-commerce", "Médias"],
+  },
 ];
 
 const sampleMissions: Mission[] = [
@@ -128,7 +199,6 @@ function HeaderBar() {
   return (
     <div className="sticky top-0 z-50 flex items-center justify-between py-4 px-6 backdrop-blur-xl bg-white/10 rounded-2xl border border-white/15">
       <div className="font-extrabold text-xl tracking-tight text-white">HybriX</div>
-      {/* Plus de bouton "Devenir talent" dans la barre */}
       <WalletControls />
     </div>
   );
@@ -158,13 +228,14 @@ function WalletControls() {
 
   return (
     <div className="flex items-center gap-3 text-sm text-white">
-      {/* Affiche l'adresse UNIQUEMENT si connecté; sinon, pas de chip "Non connecté" */}
+      {/* Adresse visible si connecté */}
       {isConnected && (
         <span className="px-3 py-1 rounded-full bg-emerald-600 text-white" suppressHydrationWarning>
           {`${address?.slice(0, 6)}…${address?.slice(-4)}`}
         </span>
       )}
 
+      {/* Bouton connecter/déconnecter toujours présent et bien visible */}
       {!isConnected ? (
         <button
           className="px-4 py-1.5 rounded-full bg-gradient-to-r from-indigo-500 to-purple-700 text-white shadow-lg hover:opacity-90 transition"
@@ -174,14 +245,14 @@ function WalletControls() {
         </button>
       ) : (
         <button
-          className="px-4 py-1.5 rounded-full border border-white/25 hover:bg-white/10 transition"
+          className="px-4 py-1.5 rounded-full bg-gradient-to-r from-rose-500 to-red-600 text-white shadow-lg hover:opacity-90 transition"
           onClick={() => disconnect()}
         >
           Déconnecter
         </button>
       )}
 
-      {/* Retrait de l'indicateur réseau "changer sur Amoy" */}
+      {/* plus d'indication réseau */}
       {status === "error" && <span className="text-red-300">{error?.message}</span>}
     </div>
   );
@@ -219,26 +290,46 @@ function Hero() {
   );
 }
 
+/* ---------- Filtres + liste talents ---------- */
 function FindTalent({ talents, onPropose }: { talents: Talent[]; onPropose: (name: string) => void }) {
-  const [q, setQ] = useState("");
-  const list = useMemo(
-    () => talents.filter((t) => (t.name + " " + t.skills.join(" ")).toLowerCase().includes(q.toLowerCase())),
-    [q, talents]
-  );
+  const [category, setCategory] = useState<string>("");
+  const [skill, setSkill] = useState<string>("");
+  const [sector, setSector] = useState<string>("");
+  const [location, setLocation] = useState<string>("");
+
+  const list = useMemo(() => {
+    return talents.filter((t) => {
+      const okCategory = category ? t.categories.includes(category) : true;
+      const okSkill = skill ? t.skills.includes(skill) : true;
+      const okSector = sector ? t.sectors.includes(sector) : true;
+      const okLocation = location ? t.location === location : true;
+      return okCategory && okSkill && okSector && okLocation;
+    });
+  }, [talents, category, skill, sector, location]);
+
   return (
     <motion.section id="find" variants={stagger} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.2 }}
       className="grid md:grid-cols-3 gap-5">
+      {/* Bloc filtres à gauche */}
       <motion.div variants={fadeCard}
-        className="md:col-span-1 space-y-2 p-5 rounded-3xl border border-white/15 bg-white/5 backdrop-blur-xl">
-        <div className="text-white/90 font-semibold">Rechercher (nom, skill)</div>
-        <input
-          placeholder="Nom, compétence…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          className="w-full border border-white/20 bg-purple-900/30 text-white rounded px-3 py-2 placeholder-white/50"
-        />
-        <div className="text-xs text-white/70">{list.length} profils</div>
+        className="md:col-span-1 space-y-3 p-5 rounded-3xl border border-white/15 bg-white/5 backdrop-blur-xl">
+        <div className="text-white/90 font-semibold">Rechercher</div>
+        <FilterSelect label="Catégorie IA" value={category} onChange={setCategory} options={["", ...IA_CATEGORIES]} />
+        <FilterSelect label="Compétences de l'Expert" value={skill} onChange={setSkill} options={["", ...SKILLS]} />
+        <FilterSelect label="Secteur visé" value={sector} onChange={setSector} options={["", ...SECTORS]} />
+        <FilterSelect label="Localisation" value={location} onChange={setLocation} options={["", ...LOCATIONS]} />
+        <div className="flex gap-2 pt-1">
+          <button
+            className="px-3 py-1.5 rounded-full border border-white/25 text-white/90 hover:bg-white/10"
+            onClick={() => { setCategory(""); setSkill(""); setSector(""); setLocation(""); }}
+          >
+            Réinitialiser
+          </button>
+          <span className="text-xs text-white/70 self-center">{list.length} profils</span>
+        </div>
       </motion.div>
+
+      {/* Liste talents à droite */}
       <div className="md:col-span-2 grid gap-4">
         {list.map((t) => (
           <motion.div variants={fadeCard} key={t.id}
@@ -250,6 +341,7 @@ function FindTalent({ talents, onPropose }: { talents: Talent[]; onPropose: (nam
                 <span className="px-2 py-0.5 border border-white/20 text-white rounded">{t.rate} €/h</span>
               </div>
             </div>
+            <div className="mt-1 text-xs text-white/70">{t.location} • {t.categories.join(" · ")} • {t.sectors.join(" · ")}</div>
             <div className="mt-2 flex gap-2 flex-wrap text-xs">
               {t.skills.map((s) => (
                 <span key={s} className="px-2 py-0.5 rounded bg-purple-800 text-white">
@@ -267,33 +359,60 @@ function FindTalent({ talents, onPropose }: { talents: Talent[]; onPropose: (nam
             </div>
           </motion.div>
         ))}
+        {list.length === 0 && (
+          <div className="text-white/70 text-sm">Aucun profil ne correspond à ces filtres.</div>
+        )}
       </div>
     </motion.section>
+  );
+}
+
+function FilterSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: readonly string[] | string[]; }) {
+  return (
+    <label className="block">
+      <div className="text-sm text-white/80 mb-1">{label}</div>
+      <select
+        className="w-full border border-white/20 bg-purple-900/30 text-white rounded px-3 py-2 outline-none focus:ring-2 focus:ring-purple-400"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      >
+        {options.map((opt) => (
+          <option key={opt || "__any"} value={opt} className="bg-indigo-950">
+            {opt || "Indifférent"}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 
 /* ---------- RegisterTalent ---------- */
 function RegisterTalent({ onRegister }: { onRegister: (t: Talent) => void }) {
   const [name, setName] = useState("");
-  const [skills, setSkills] = useState("");
+  const [skills, setSkills] = useState<string[]>([]);
   const [rate, setRate] = useState("");
+  const [location, setLocation] = useState<string>("Remote");
+  const [categories, setCategories] = useState<string[]>([]);
+  const [sectors, setSectors] = useState<string[]>([]);
+
+  const toggleArr = (arr: string[], setter: (v: string[]) => void, v: string) => {
+    setter(arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
+  };
 
   const submit = () => {
     if (!name || !rate) return alert("Nom et TJM requis");
     const talent: Talent = {
       id: Date.now(),
       name,
-      skills: skills
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean),
+      skills,
       rate: Number(rate),
-      rating: 4.6, // valeur par défaut pour le MVP
+      rating: 4.6,
+      location,
+      categories,
+      sectors,
     };
     onRegister(talent);
-    setName("");
-    setSkills("");
-    setRate("");
+    setName(""); setSkills([]); setRate(""); setLocation("Remote"); setCategories([]); setSectors([]);
     alert("Profil talent créé !");
   };
 
@@ -314,20 +433,61 @@ function RegisterTalent({ onRegister }: { onRegister: (t: Talent) => void }) {
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
-        <input
-          className="border border-white/20 bg-purple-900/30 text-white rounded px-3 py-2 placeholder-white/50"
-          placeholder="Compétences (séparées par des virgules)"
-          value={skills}
-          onChange={(e) => setSkills(e.target.value)}
-        />
+        <select className="border border-white/20 bg-purple-900/30 text-white rounded px-3 py-2" value={location} onChange={(e) => setLocation(e.target.value)}>
+          {LOCATIONS.map((l) => (
+            <option key={l} value={l} className="bg-indigo-950">{l}</option>
+          ))}
+        </select>
         <input
           type="number"
           inputMode="decimal"
-          className="border border-white/20 bg-purple-900/30 text-white rounded px-3 py-2 placeholder-white/50"
+          className="border border-white/20 bg-purple-900/30 text-white rounded px-3 py-2"
           placeholder="TJM (€ / h)"
           value={rate}
           onChange={(e) => setRate(e.target.value)}
         />
+
+        <div className="md:col-span-3">
+          <div className="text-sm text-white/80 mb-1">Compétences</div>
+          <div className="flex flex-wrap gap-2">
+            {SKILLS.map((s) => (
+              <button key={s} type="button"
+                className={`px-2 py-1 rounded-full border ${skills.includes(s as string) ? "bg-purple-700 border-purple-500" : "border-white/25"}`}
+                onClick={() => toggleArr(skills, setSkills, s as string)}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="md:col-span-3">
+          <div className="text-sm text-white/80 mb-1">Catégories IA</div>
+          <div className="flex flex-wrap gap-2">
+            {IA_CATEGORIES.map((c) => (
+              <button key={c} type="button"
+                className={`px-2 py-1 rounded-full border ${categories.includes(c as string) ? "bg-purple-700 border-purple-500" : "border-white/25"}`}
+                onClick={() => toggleArr(categories, setCategories, c as string)}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="md:col-span-3">
+          <div className="text-sm text-white/80 mb-1">Secteurs visés</div>
+          <div className="flex flex-wrap gap-2">
+            {SECTORS.map((s) => (
+              <button key={s} type="button"
+                className={`px-2 py-1 rounded-full border ${sectors.includes(s as string) ? "bg-purple-700 border-purple-500" : "border-white/25"}`}
+                onClick={() => toggleArr(sectors, setSectors, s as string)}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
       <div className="mt-3">
         <button
@@ -607,7 +767,7 @@ export default function Page() {
               viewport={{ once: true, amount: 0.2 }}
               className="space-y-6"
             >
-              {/* Recherche / Talents */}
+              {/* Filtres + Talents */}
               <FindTalent talents={talents} onPropose={(name) => alert(`Proposer une mission à ${name}`)} />
 
               {/* Missions ouvertes */}
