@@ -126,20 +126,16 @@ const fadeCard = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 /* ---------- UI ---------- */
 function HeaderBar() {
   return (
-    <div className="flex items-center justify-between py-4 px-6 backdrop-blur-xl bg-white/10 rounded-2xl border border-white/15">
+    <div className="sticky top-0 z-50 flex items-center justify-between py-4 px-6 backdrop-blur-xl bg-white/10 rounded-2xl border border-white/15">
       <div className="font-extrabold text-xl tracking-tight text-white">HybriX</div>
-      <div className="flex items-center gap-3">
-        <a href="#register" className="hidden sm:inline px-4 py-1.5 rounded-full bg-black text-white border border-white/15 hover:bg-white/10 transition">
-          Devenir talent
-        </a>
-        <WalletControls />
-      </div>
+      {/* Plus de bouton "Devenir talent" dans la barre */}
+      <WalletControls />
     </div>
   );
 }
 
 function WalletControls() {
-  const { address, chainId, isConnected } = useAccount();
+  const { address, isConnected } = useAccount();
   const { connect, connectors, status, error } = useConnect();
   const { disconnect } = useDisconnect();
 
@@ -162,21 +158,19 @@ function WalletControls() {
 
   return (
     <div className="flex items-center gap-3 text-sm text-white">
-      <span
-        className={`px-3 py-1 rounded-full ${
-          isConnected ? "bg-emerald-600 text-white" : "bg-purple-800 text-white"
-        }`}
-        suppressHydrationWarning
-      >
-        {isConnected ? `${address?.slice(0, 6)}…${address?.slice(-4)}` : "Non connecté"}
-      </span>
+      {/* Affiche l'adresse UNIQUEMENT si connecté; sinon, pas de chip "Non connecté" */}
+      {isConnected && (
+        <span className="px-3 py-1 rounded-full bg-emerald-600 text-white" suppressHydrationWarning>
+          {`${address?.slice(0, 6)}…${address?.slice(-4)}`}
+        </span>
+      )}
 
       {!isConnected ? (
         <button
-          className="px-4 py-1.5 rounded-full bg-gradient-to-r from-indigo-500 to-purple-700 text-white shadow-lg hover:scale-105 transition"
+          className="px-4 py-1.5 rounded-full bg-gradient-to-r from-indigo-500 to-purple-700 text-white shadow-lg hover:opacity-90 transition"
           onClick={tryConnect}
         >
-          {injectedConnector || eth ? "Connecter" : "Installer MetaMask"}
+          Connecter
         </button>
       ) : (
         <button
@@ -187,9 +181,7 @@ function WalletControls() {
         </button>
       )}
 
-      <span className="px-3 py-1 rounded-full border border-white/25" suppressHydrationWarning>
-        Réseau: {chainId === polygonAmoy.id ? "Polygon Amoy" : "changer sur Amoy"}
-      </span>
+      {/* Retrait de l'indicateur réseau "changer sur Amoy" */}
       {status === "error" && <span className="text-red-300">{error?.message}</span>}
     </div>
   );
@@ -207,17 +199,16 @@ function Hero() {
         Hybrid Talent Marketplace
       </h1>
       <p className="text-white/80 max-w-3xl mx-auto mt-4">
-        Missions réalisées par des duos <b>IA + Expert Humain</b> — Data & Analytics • Marketing & Growth • Design & Création • Juridique & Conformité • Support Client.
-        Paiements sécurisés via escrow Web3.
+        Missions réalisées par des duos <b>IA + Expert Humain</b>.
       </p>
       <div className="flex justify-center gap-4 mt-6">
-        <a href="#post" className="px-6 py-3 rounded-full bg-black text-white font-medium">
+        <a href="#post" className="px-6 py-3 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-medium shadow-lg hover:opacity-90 transition">
           Publier une Mission
         </a>
-        <a href="#find" className="px-6 py-3 rounded-full border border-white text-white font-medium">
+        <a href="#find" className="px-6 py-3 rounded-full bg-gradient-to-r from-sky-500 to-indigo-500 text-white font-medium shadow-lg hover:opacity-90 transition">
           Trouver un Binôme
         </a>
-        <a href="#register" className="px-6 py-3 rounded-full bg-gradient-to-r from-indigo-500 to-purple-700 text-white font-medium">
+        <a href="#register" className="px-6 py-3 rounded-full bg-gradient-to-r from-indigo-500 to-purple-700 text-white font-medium shadow-lg hover:opacity-90 transition">
           Devenir talent
         </a>
       </div>
@@ -268,7 +259,7 @@ function FindTalent({ talents, onPropose }: { talents: Talent[]; onPropose: (nam
             </div>
             <div className="mt-3">
               <button
-                className="px-3 py-1.5 rounded-full bg-black text-white hover:scale-105 transition"
+                className="px-3 py-1.5 rounded-full bg-gradient-to-r from-fuchsia-600 to-violet-600 text-white hover:opacity-90 transition"
                 onClick={() => onPropose(t.name)}
               >
                 Proposer une mission
@@ -340,7 +331,7 @@ function RegisterTalent({ onRegister }: { onRegister: (t: Talent) => void }) {
       </div>
       <div className="mt-3">
         <button
-          className="px-5 py-2 rounded-full bg-gradient-to-r from-indigo-500 to-purple-700 text-white hover:scale-105 transition"
+          className="px-5 py-2 rounded-full bg-gradient-to-r from-indigo-500 to-purple-700 text-white hover:opacity-90 transition"
           onClick={submit}
         >
           S’inscrire comme talent
@@ -393,7 +384,7 @@ function PostMission({ onCreate }: { onCreate: (m: Mission) => void }) {
       </div>
       <div className="mt-3">
         <button
-          className="px-5 py-2 rounded-full bg-gradient-to-r from-indigo-500 to-purple-700 text-white shadow-lg hover:scale-105 transition"
+          className="px-5 py-2 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg hover:opacity-90 transition"
           onClick={() => {
             if (!title || !budget) {
               alert("Complète le titre et le budget");
