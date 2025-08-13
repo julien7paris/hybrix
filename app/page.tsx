@@ -284,7 +284,7 @@ function Hero() {
         </a>
       </div>
       <div className="mt-3 text-sm text-white/60">
-        Facturation auto • Escrow • NFT (v2)
+        La communauté des binômes IA + Experts qui transforment vos idées en succès.
       </div>
     </motion.div>
   );
