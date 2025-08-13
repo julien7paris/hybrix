@@ -296,36 +296,51 @@ function FindTalent({ talents, onPropose }: { talents: Talent[]; onPropose: (nam
   const [skill, setSkill] = useState<string>("");
   const [sector, setSector] = useState<string>("");
   const [location, setLocation] = useState<string>("");
+  const [resetNonce, setResetNonce] = useState(0); // pour forcer le remount des selects si besoin
 
   const list = useMemo(() => {
+    const c = (category || "").trim();
+    const sk = (skill || "").trim();
+    const se = (sector || "").trim();
+    const lo = (location || "").trim();
     return talents.filter((t) => {
-      const okCategory = category ? t.categories.includes(category) : true;
-      const okSkill = skill ? t.skills.includes(skill) : true;
-      const okSector = sector ? t.sectors.includes(sector) : true;
-      const okLocation = location ? t.location === location : true;
+      const okCategory = c ? t.categories.includes(c) : true;
+      const okSkill = sk ? t.skills.includes(sk) : true;
+      const okSector = se ? t.sectors.includes(se) : true;
+      const okLocation = lo ? t.location === lo : true;
       return okCategory && okSkill && okSector && okLocation;
     });
   }, [talents, category, skill, sector, location]);
+
+  const handleReset = () => {
+    setCategory("");
+    setSkill("");
+    setSector("");
+    setLocation("");
+    setResetNonce((n) => n + 1); // garantit un rerender des selects
+  };
 
   return (
     <motion.section id="find" variants={stagger} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.2 }}
       className="grid md:grid-cols-3 gap-5">
       {/* Bloc filtres à gauche */}
       <motion.div variants={fadeCard}
-        className="md:col-span-1 space-y-3 p-5 rounded-3xl border border-white/15 bg-white/5 backdrop-blur-xl">
-        <div className="text-white/90 font-semibold">Rechercher</div>
-        <FilterSelect label="Catégorie IA" value={category} onChange={setCategory} options={["", ...IA_CATEGORIES]} />
-        <FilterSelect label="Compétences de l'Expert" value={skill} onChange={setSkill} options={["", ...SKILLS]} />
-        <FilterSelect label="Secteur visé" value={sector} onChange={setSector} options={["", ...SECTORS]} />
-        <FilterSelect label="Localisation" value={location} onChange={setLocation} options={["", ...LOCATIONS]} />
-        <div className="flex gap-2 pt-1">
-          <button
-            className="px-3 py-1.5 rounded-full border border-white/25 text-white/90 hover:bg-white/10"
-            onClick={() => { setCategory(""); setSkill(""); setSector(""); setLocation(""); }}
-          >
-            Réinitialiser
-          </button>
-          <span className="text-xs text-white/70 self-center">{list.length} profils</span>
+        className="md:col-span-1 p-5 rounded-3xl border border-white/15 bg-white/5 backdrop-blur-xl">
+        <div className="text-white/90 font-semibold mb-3">Rechercher</div>
+        <div className="grid grid-rows-5 gap-3 min-h-[360px]" key={resetNonce}>
+          <FilterSelect label="Catégorie IA" value={category} onChange={setCategory} options={["", ...IA_CATEGORIES]} />
+          <FilterSelect label="Compétences de l'Expert" value={skill} onChange={setSkill} options={["", ...SKILLS]} />
+          <FilterSelect label="Secteur visé" value={sector} onChange={setSector} options={["", ...SECTORS]} />
+          <FilterSelect label="Localisation" value={location} onChange={setLocation} options={["", ...LOCATIONS]} />
+          <div className="flex items-center justify-between">
+            <button
+              className="px-3 py-1.5 rounded-full border border-white/25 text-white/90 hover:bg-white/10"
+              onClick={handleReset}
+            >
+              Réinitialiser
+            </button>
+            <span className="text-xs text-white/70">{list.length} profils</span>
+          </div>
         </div>
       </motion.div>
 
@@ -369,18 +384,22 @@ function FindTalent({ talents, onPropose }: { talents: Talent[]; onPropose: (nam
 
 function FilterSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: readonly string[] | string[]; }) {
   return (
-    <label className="block">
+    <label className="flex flex-col justify-between">
       <div className="text-sm text-white/80 mb-1">{label}</div>
       <select
-        className="w-full border border-white/20 bg-purple-900/30 text-white rounded px-3 py-2 outline-none focus:ring-2 focus:ring-purple-400"
+        className="w-full h-11 border border-white/20 bg-purple-900/30 text-white rounded px-3 outline-none focus:ring-2 focus:ring-purple-400"
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => onChange((e.target.value || "").trim())}
       >
-        {options.map((opt) => (
-          <option key={opt || "__any"} value={opt} className="bg-indigo-950">
-            {opt || "Indifférent"}
-          </option>
-        ))}
+        {/* valeur vide explicite pour Indifférent */}
+        <option value="" className="bg-indigo-950">Indifférent</option>
+        {options
+          .filter((opt) => opt !== "")
+          .map((opt) => (
+            <option key={opt as string} value={opt as string} className="bg-indigo-950">
+              {opt as string}
+            </option>
+          ))}
       </select>
     </label>
   );
